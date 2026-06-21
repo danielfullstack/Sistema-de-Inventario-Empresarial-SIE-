@@ -1,0 +1,24 @@
+{
+  "name": "sie-sistema-de-inventario-empresarial",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Proyecto base full stack para SIE - Sistema de Inventario Empresarial.",
+  "scripts": {
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "build:frontend": "npm run build --prefix frontend"
+  },
+  "keywords": [
+    "inventory",
+    "express",
+    "vite",
+    "postgresql"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "pg": "^8.21.0"
+  }
+}
