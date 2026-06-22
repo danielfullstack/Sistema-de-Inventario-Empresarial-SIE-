@@ -1,5 +1,7 @@
+import { apiFetch } from './apiClient.js'
+
 export async function login(credentials) {
-  const response = await fetch('/api/auth/login', {
+  const response = await apiFetch('/api/auth/login', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -17,16 +19,9 @@ export async function login(credentials) {
 }
 
 export async function logout() {
-  const token = localStorage.getItem('token')
-
-  if (!token) {
-    return
-  }
-
-  await fetch('/api/auth/logout', {
+  await apiFetch('/api/auth/logout', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json'
     }
   }).catch(() => {})
