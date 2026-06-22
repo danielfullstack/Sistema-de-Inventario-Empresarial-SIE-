@@ -12,6 +12,10 @@ function formatDate(value) {
   }).format(new Date(value))
 }
 
+function normalizeEstado(estado = '') {
+  return String(estado).toLowerCase() === 'inactivo' ? 'Inactivo' : 'Activo'
+}
+
 export function renderCategorias(usuario) {
   return `
     <main class="erp-shell">
@@ -38,6 +42,14 @@ export function renderCategorias(usuario) {
                 <span>Buscar</span>
                 <input id="category-search" type="search" placeholder="Buscar categoria..." data-category-search />
               </label>
+              <label class="module-search" for="category-status-filter">
+                <span>Estado</span>
+                <select id="category-status-filter" data-category-status-filter>
+                  <option value="activo">Activos</option>
+                  <option value="inactivo">Inactivos</option>
+                  <option value="todos">Todos</option>
+                </select>
+              </label>
               <p class="module-status" data-category-status>Cargando categorias...</p>
             </div>
 
@@ -49,13 +61,14 @@ export function renderCategorias(usuario) {
                     <th>Nombre</th>
                     <th>Descripcion</th>
                     <th>Categoria Padre</th>
+                    <th>Estado</th>
                     <th>Fecha Creacion</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody data-category-table-body>
                   <tr>
-                    <td colspan="6">Cargando categorias...</td>
+                    <td colspan="7">Cargando categorias...</td>
                   </tr>
                 </tbody>
               </table>
@@ -112,26 +125,33 @@ export function renderCategoriaRows(categorias) {
   if (categorias.length === 0) {
     return `
       <tr>
-        <td colspan="6">No se encontraron categorias.</td>
+        <td colspan="7">No se encontraron categorias.</td>
       </tr>
     `
   }
 
-  return categorias.map((categoria) => `
-    <tr>
-      <td>${categoria.id_categoria}</td>
-      <td><strong>${escapeHtml(categoria.nombre)}</strong></td>
-      <td>${escapeHtml(categoria.descripcion || '-')}</td>
-      <td>${escapeHtml(categoria.categoria_padre || '-')}</td>
-      <td>${formatDate(categoria.created_at)}</td>
-      <td>
-        <div class="row-actions">
-          <button class="table-action edit" type="button" data-edit-category="${categoria.id_categoria}">Editar</button>
-          <button class="table-action delete" type="button" data-delete-category="${categoria.id_categoria}">Eliminar</button>
-        </div>
-      </td>
-    </tr>
-  `).join('')
+  return categorias.map((categoria) => {
+    const estado = normalizeEstado(categoria.estado)
+
+    return `
+      <tr>
+        <td>${categoria.id_categoria}</td>
+        <td><strong>${escapeHtml(categoria.nombre)}</strong></td>
+        <td>${escapeHtml(categoria.descripcion || '-')}</td>
+        <td>${escapeHtml(categoria.categoria_padre || '-')}</td>
+        <td><span class="status-badge ${estado === 'Activo' ? 'active' : 'inactive'}">${estado}</span></td>
+        <td>${formatDate(categoria.created_at)}</td>
+        <td>
+          <div class="row-actions">
+            <button class="table-action edit" type="button" data-edit-category="${categoria.id_categoria}">Editar</button>
+            ${estado === 'Activo'
+              ? `<button class="table-action delete" type="button" data-delete-category="${categoria.id_categoria}">Desactivar</button>`
+              : `<button class="table-action edit" type="button" data-reactivate-category="${categoria.id_categoria}">Reactivar</button>`}
+          </div>
+        </td>
+      </tr>
+    `
+  }).join('')
 }
 
 export function renderParentOptions(categorias, currentId = null, selectedId = null) {

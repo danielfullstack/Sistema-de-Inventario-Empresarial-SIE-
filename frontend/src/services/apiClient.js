@@ -1,5 +1,15 @@
 import { clearUsuario, getToken } from './sessionService.js'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+
+function resolveApiUrl(url) {
+  if (!API_BASE_URL || /^https?:\/\//.test(url)) {
+    return url
+  }
+
+  return `${API_BASE_URL.replace(/\/$/, '')}${url}`
+}
+
 export async function apiFetch(url, options = {}) {
   const token = getToken()
   const headers = {
@@ -10,7 +20,7 @@ export async function apiFetch(url, options = {}) {
     headers.Authorization = `Bearer ${token}`
   }
 
-  const response = await fetch(url, {
+  const response = await fetch(resolveApiUrl(url), {
     ...options,
     headers
   })

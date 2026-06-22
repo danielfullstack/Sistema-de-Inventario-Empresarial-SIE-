@@ -4,6 +4,11 @@ const ACTION_LABELS = {
   CREATE: ['Crear', 'active'],
   UPDATE: ['Editar', 'warning'],
   DELETE: ['Eliminar', 'inactive'],
+  DESACTIVAR: ['Desactivar', 'inactive'],
+  REACTIVAR: ['Reactivar', 'active'],
+  CONSULTA: ['Consulta', 'login'],
+  EXPORT_PDF: ['Exportar PDF', 'login'],
+  EXPORT_EXCEL: ['Exportar Excel', 'active'],
   LOGIN: ['Login', 'login'],
   LOGOUT: ['Logout', 'logout']
 }
@@ -34,6 +39,10 @@ export function renderAuditoria(usuario) {
                 <p class="eyebrow">Trazabilidad del sistema</p>
                 <h1>Registro de Auditoria</h1>
               </div>
+              <div class="row-actions">
+                <button class="secondary-button" type="button" data-export-audit-pdf>Exportar PDF</button>
+                <button class="secondary-button" type="button" data-export-audit-excel>Exportar Excel</button>
+              </div>
             </div>
 
             <section class="stock-summary-grid" data-audit-summary>
@@ -63,6 +72,11 @@ export function renderAuditoria(usuario) {
                   <option value="CREATE">CREATE</option>
                   <option value="UPDATE">UPDATE</option>
                   <option value="DELETE">DELETE</option>
+                  <option value="DESACTIVAR">DESACTIVAR</option>
+                  <option value="REACTIVAR">REACTIVAR</option>
+                  <option value="CONSULTA">CONSULTA</option>
+                  <option value="EXPORT_PDF">EXPORT_PDF</option>
+                  <option value="EXPORT_EXCEL">EXPORT_EXCEL</option>
                   <option value="LOGIN">LOGIN</option>
                   <option value="LOGOUT">LOGOUT</option>
                 </select>
@@ -156,7 +170,7 @@ export function renderAuditoriaSummaryCards(items) {
     <article class="inventory-card stock-summary-card">
       <div>
         <span>Eliminaciones</span>
-        <strong>${count('DELETE')}</strong>
+        <strong>${count('DELETE') + count('DESACTIVAR')}</strong>
         <p>Bajas o desactivaciones.</p>
       </div>
     </article>

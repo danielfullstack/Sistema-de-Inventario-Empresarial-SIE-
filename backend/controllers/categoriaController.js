@@ -44,9 +44,14 @@ async function validateParentExists(idCategoriaPadre) {
   return Boolean(parent);
 }
 
-async function getCategorias(_req, res) {
+function parseEstadoQuery(value) {
+  const estado = String(value || 'activo').trim().toLowerCase();
+  return ['activo', 'inactivo', 'todos'].includes(estado) ? estado : 'activo';
+}
+
+async function getCategorias(req, res) {
   try {
-    const categorias = await categoriaService.findAll();
+    const categorias = await categoriaService.findAll(parseEstadoQuery(req.query.estado));
 
     return res.json({
       success: true,
@@ -211,11 +216,12 @@ async function deleteCategoria(req, res) {
       });
     }
 
-    await categoriaService.remove(idCategoria);
+    const categoriaDesactivada = await categoriaService.remove(idCategoria);
 
     return res.json({
       success: true,
-      message: 'Categoria eliminada correctamente.'
+      message: 'Categoria desactivada correctamente.',
+      data: categoriaDesactivada
     });
   } catch (error) {
     console.error('Error al eliminar categoria:', error);
@@ -234,10 +240,46 @@ async function deleteCategoria(req, res) {
   }
 }
 
+async function reactivateCategoria(req, res) {
+  const idCategoria = parseId(req.params.id);
+
+  if (!idCategoria) {
+    return res.status(400).json({
+      success: false,
+      message: 'ID de categoria invalido.'
+    });
+  }
+
+  try {
+    const categoria = await categoriaService.reactivate(idCategoria);
+
+    if (!categoria) {
+      return res.status(404).json({
+        success: false,
+        message: 'Categoria no encontrada.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Categoria reactivada correctamente.',
+      data: categoria
+    });
+  } catch (error) {
+    console.error('Error al reactivar categoria:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Error al reactivar categoria.'
+    });
+  }
+}
+
 module.exports = {
   getCategorias,
   getCategoriaById,
   createCategoria,
   updateCategoria,
-  deleteCategoria
+  deleteCategoria,
+  reactivateCategoria
 };

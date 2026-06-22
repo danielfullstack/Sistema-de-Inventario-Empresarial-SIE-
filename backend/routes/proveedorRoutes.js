@@ -7,6 +7,7 @@ router.get('/', proveedorController.getProveedores);
 router.get('/:id', proveedorController.getProveedorById);
 router.post('/', proveedorController.createProveedor);
 router.put('/:id', proveedorController.updateProveedor);
+router.patch('/:id/reactivar', proveedorController.reactivateProveedor);
 router.delete('/:id', proveedorController.deleteProveedor);
 
 module.exports = router;

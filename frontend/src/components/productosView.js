@@ -42,6 +42,14 @@ export function renderProductos(usuario) {
                 <span>Categoria</span>
                 <select id="product-category-filter" data-product-category-filter></select>
               </label>
+              <label class="module-search" for="product-status-filter">
+                <span>Estado</span>
+                <select id="product-status-filter" data-product-status-filter>
+                  <option value="activo">Activos</option>
+                  <option value="inactivo">Inactivos</option>
+                  <option value="todos">Todos</option>
+                </select>
+              </label>
 
               <p class="module-status" data-product-status>Cargando productos...</p>
             </div>
@@ -137,8 +145,8 @@ export function renderProductos(usuario) {
               <label class="field" for="product-status">
                 <span>Estado</span>
                 <select id="product-status" name="estado">
-                  <option value="Activo">Activo</option>
-                  <option value="Inactivo">Inactivo</option>
+                  <option value="activo">Activo</option>
+                  <option value="inactivo">Inactivo</option>
                 </select>
               </label>
             </div>
@@ -181,7 +189,9 @@ export function renderProductoRows(productos) {
         <td>
           <div class="row-actions">
             <button class="table-action edit" type="button" data-edit-product="${producto.id_producto}">Editar</button>
-            <button class="table-action delete" type="button" data-delete-product="${producto.id_producto}">Eliminar</button>
+            ${estado === 'Activo'
+              ? `<button class="table-action delete" type="button" data-delete-product="${producto.id_producto}">Desactivar</button>`
+              : `<button class="table-action edit" type="button" data-reactivate-product="${producto.id_producto}">Reactivar</button>`}
           </div>
         </td>
       </tr>

@@ -33,6 +33,10 @@ export function renderStock(usuario) {
                 <p class="eyebrow">Inventario disponible</p>
                 <h1>Control de Stock</h1>
               </div>
+              <div class="row-actions">
+                <button class="secondary-button" type="button" data-export-stock-pdf>Exportar PDF</button>
+                <button class="secondary-button" type="button" data-export-stock-excel>Exportar Excel</button>
+              </div>
             </div>
 
             <section class="stock-summary-grid" data-stock-summary>

@@ -4,7 +4,7 @@ const ACTION_BY_METHOD = {
   POST: 'CREATE',
   PUT: 'UPDATE',
   PATCH: 'UPDATE',
-  DELETE: 'DELETE'
+  DELETE: 'DESACTIVAR'
 };
 
 function getRecordId(responseBody, req, moduleName) {
@@ -41,11 +41,13 @@ function getRecordId(responseBody, req, moduleName) {
 
 function buildDescription(user, action, moduleName, recordId, responseBody, req) {
   const nombre = user?.nombre || 'Usuario';
+  const resolvedAction = req.path?.endsWith('/reactivar') ? 'REACTIVAR' : action;
   const actionText = {
     CREATE: 'creo',
     UPDATE: 'edito',
-    DELETE: 'elimino'
-  }[action] || action.toLowerCase();
+    DESACTIVAR: 'desactivo',
+    REACTIVAR: 'reactivo'
+  }[resolvedAction] || resolvedAction.toLowerCase();
   const detail = responseBody?.message || `${actionText} registro`;
   const target = recordId ? ` registro ${recordId}` : '';
 
@@ -79,13 +81,15 @@ function auditModule(moduleName) {
 
       const recordId = getRecordId(responseBody, req, moduleName);
 
+      const finalAction = req.path?.endsWith('/reactivar') ? 'REACTIVAR' : action;
+
       registrarAuditoria({
         id_usuario: req.user?.id,
         usuario_nombre: req.user?.nombre,
         modulo: moduleName,
-        accion: action,
+        accion: finalAction,
         registro_id: recordId,
-        descripcion: buildDescription(req.user, action, moduleName, recordId, responseBody, req)
+        descripcion: buildDescription(req.user, finalAction, moduleName, recordId, responseBody, req)
       }).catch((error) => {
         console.error('Error al registrar auditoria:', error);
       });

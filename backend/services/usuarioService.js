@@ -13,11 +13,22 @@ const baseSelect = `
   FROM usuarios
 `;
 
-async function findAll() {
+function buildEstadoFilter(estado) {
+  if (estado === 'todos') {
+    return { clause: '', params: [] };
+  }
+
+  const normalized = estado === 'inactivo' ? 'inactivo' : 'activo';
+  return { clause: 'WHERE LOWER(estado) = $1', params: [normalized] };
+}
+
+async function findAll(estado = 'activo') {
+  const filter = buildEstadoFilter(estado);
   const { rows } = await pool.query(`
     ${baseSelect}
+    ${filter.clause}
     ORDER BY id ASC
-  `);
+  `, filter.params);
 
   return rows;
 }
@@ -117,6 +128,10 @@ async function softDelete(idUsuario) {
   return updateEstado(idUsuario, 'inactivo');
 }
 
+async function reactivate(idUsuario) {
+  return updateEstado(idUsuario, 'activo');
+}
+
 module.exports = {
   findAll,
   findById,
@@ -124,5 +139,6 @@ module.exports = {
   create,
   update,
   updateEstado,
-  softDelete
+  softDelete,
+  reactivate
 };

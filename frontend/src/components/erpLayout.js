@@ -1,3 +1,5 @@
+import { canAccessPath, getUsuario } from '../services/sessionService.js'
+
 const sidebarItems = [
   ['Dashboard', '/dashboard', 'M3 12h7V3H3v9Zm0 9h7v-7H3v7Zm11 0h7v-9h-7v9Zm0-11h7V3h-7v7Z'],
   ['Productos', '/productos', 'M21 8.5 12 3 3 8.5v7L12 21l9-5.5v-7Z'],
@@ -7,6 +9,7 @@ const sidebarItems = [
   ['Almacenes', '/almacenes', 'M3 10 12 4l9 6v11H3V10Zm5 11v-7h8v7'],
   ['Ubicaciones', '/ubicaciones', 'M12 21s7-5.2 7-11a7 7 0 0 0-14 0c0 5.8 7 11 7 11Zm0-8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z'],
   ['Stock', '/stock', 'M4 6h16M4 12h16M4 18h16'],
+  ['Kardex', '/kardex', 'M21 8.5 12 3 3 8.5v7L12 21l9-5.5v-7ZM8 10h8M8 14h8'],
   ['Movimientos', '/movimientos', 'M7 7h11l-3-3m3 3-3 3M17 17H6l3 3m-3-3 3-3'],
   ['Reportes', '/reportes', 'M4 19V5m5 14V9m5 10V4m5 15v-7M3 19h18'],
   ['Auditoria', '/auditoria', 'M9 11h6M9 15h6M8 3h8l3 3v15H5V6l3-3Zm8 0v4h4'],
@@ -32,7 +35,7 @@ export function escapeHtml(value = '') {
 }
 
 export function formatRole(role = '') {
-  const normalized = role.toLowerCase()
+  const normalized = String(role).toLowerCase()
 
   if (normalized === 'admin') {
     return 'Administrador'
@@ -42,7 +45,10 @@ export function formatRole(role = '') {
 }
 
 export function renderSidebar(activePath = '/dashboard') {
-  const links = sidebarItems.map(([label, href, path]) => `
+  const usuario = getUsuario()
+  const links = sidebarItems
+    .filter(([_label, href]) => canAccessPath(usuario, href))
+    .map(([label, href, path]) => `
     <a class="erp-nav-link ${href === activePath ? 'active' : ''}" href="${href}">
       ${svg(path, 'nav-icon')}
       <span>${label}</span>

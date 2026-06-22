@@ -67,9 +67,14 @@ function generateTemporaryPassword() {
   return crypto.randomBytes(9).toString('base64url').slice(0, 12);
 }
 
-async function getUsuarios(_req, res) {
+function parseEstadoQuery(value) {
+  const estado = String(value || 'activo').trim().toLowerCase();
+  return ['activo', 'inactivo', 'todos'].includes(estado) ? estado : 'activo';
+}
+
+async function getUsuarios(req, res) {
   try {
-    const usuarios = await usuarioService.findAll();
+    const usuarios = await usuarioService.findAll(parseEstadoQuery(req.query.estado));
 
     return res.json({
       success: true,
@@ -291,11 +296,47 @@ async function deleteUsuario(req, res) {
   }
 }
 
+async function reactivateUsuario(req, res) {
+  const idUsuario = parseId(req.params.id);
+
+  if (!idUsuario) {
+    return res.status(400).json({
+      success: false,
+      message: 'ID de usuario invalido.'
+    });
+  }
+
+  try {
+    const usuario = await usuarioService.reactivate(idUsuario);
+
+    if (!usuario) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Usuario reactivado correctamente.',
+      data: usuario
+    });
+  } catch (error) {
+    console.error('Error al reactivar usuario:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Error al reactivar usuario.'
+    });
+  }
+}
+
 module.exports = {
   getUsuarios,
   getUsuarioById,
   createUsuario,
   updateUsuario,
   updateEstado,
-  deleteUsuario
+  deleteUsuario,
+  reactivateUsuario
 };

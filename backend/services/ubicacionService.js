@@ -10,17 +10,29 @@ const baseSelect = `
     u.estante,
     u.nivel,
     u.capacidad,
+    u.estado,
     u.created_at,
     u.updated_at
   FROM ubicacion u
   INNER JOIN almacen a ON a.id_almacen = u.id_almacen
 `;
 
-async function findAll() {
+function buildEstadoFilter(estado, prefix = 'WHERE', paramIndex = 1) {
+  if (estado === 'todos') {
+    return { clause: '', params: [] };
+  }
+
+  const normalized = estado === 'inactivo' ? 'inactivo' : 'activo';
+  return { clause: `${prefix} LOWER(u.estado) = $${paramIndex}`, params: [normalized] };
+}
+
+async function findAll(estado = 'activo') {
+  const filter = buildEstadoFilter(estado);
   const { rows } = await pool.query(`
     ${baseSelect}
+    ${filter.clause}
     ORDER BY u.id_ubicacion ASC
-  `);
+  `, filter.params);
 
   return rows;
 }
@@ -34,14 +46,16 @@ async function findById(idUbicacion) {
   return rows[0] || null;
 }
 
-async function findByAlmacen(idAlmacen) {
+async function findByAlmacen(idAlmacen, estado = 'activo') {
+  const filter = buildEstadoFilter(estado, 'AND', 2);
   const { rows } = await pool.query(
     `
       ${baseSelect}
       WHERE u.id_almacen = $1
+      ${filter.clause}
       ORDER BY u.id_ubicacion ASC
     `,
-    [idAlmacen]
+    [idAlmacen, ...filter.params]
   );
 
   return rows;
@@ -85,13 +99,45 @@ async function update(idUbicacion, { idAlmacen, codigo, pasillo, estante, nivel,
   return findById(rows[0].id_ubicacion);
 }
 
+async function updateEstado(idUbicacion, estado) {
+  const { rows } = await pool.query(
+    `
+      UPDATE ubicacion
+      SET estado = $1, updated_at = NOW()
+      WHERE id_ubicacion = $2
+      RETURNING id_ubicacion
+    `,
+    [estado, idUbicacion]
+  );
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return findById(rows[0].id_ubicacion);
+}
+
 async function remove(idUbicacion) {
-  const { rowCount } = await pool.query(
-    'DELETE FROM ubicacion WHERE id_ubicacion = $1',
+  return updateEstado(idUbicacion, 'inactivo');
+}
+
+async function reactivate(idUbicacion) {
+  return updateEstado(idUbicacion, 'activo');
+}
+
+async function hasStockByAlmacen(idUbicacion) {
+  const { rows } = await pool.query(
+    `
+      SELECT 1
+      FROM ubicacion u
+      INNER JOIN stock s ON s.id_almacen = u.id_almacen
+      WHERE u.id_ubicacion = $1
+      LIMIT 1
+    `,
     [idUbicacion]
   );
 
-  return rowCount > 0;
+  return rows.length > 0;
 }
 
 module.exports = {
@@ -100,5 +146,8 @@ module.exports = {
   findByAlmacen,
   create,
   update,
-  remove
+  updateEstado,
+  remove,
+  reactivate,
+  hasStockByAlmacen
 };

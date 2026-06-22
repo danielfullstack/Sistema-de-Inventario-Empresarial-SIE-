@@ -43,8 +43,8 @@ function normalizeListResponse(response) {
   throw new Error('La respuesta de usuarios no contiene una lista valida.')
 }
 
-export async function getUsuarios() {
-  const response = await request(API_URL)
+export async function getUsuarios(estado = 'activo') {
+  const response = await request(`${API_URL}?estado=${encodeURIComponent(estado)}`)
   return normalizeListResponse(response)
 }
 
@@ -76,6 +76,14 @@ export async function updateUsuarioEstado(idUsuario, estado) {
 export async function deleteUsuario(idUsuario) {
   const response = await request(`${API_URL}/${idUsuario}`, {
     method: 'DELETE'
+  })
+
+  return response.data
+}
+
+export async function reactivateUsuario(idUsuario) {
+  const response = await request(`${API_URL}/${idUsuario}/reactivar`, {
+    method: 'PATCH'
   })
 
   return response.data

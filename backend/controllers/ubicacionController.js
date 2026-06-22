@@ -42,14 +42,19 @@ function validatePayload(payload) {
   return null;
 }
 
+function parseEstadoQuery(value) {
+  const estado = String(value || 'activo').trim().toLowerCase();
+  return ['activo', 'inactivo', 'todos'].includes(estado) ? estado : 'activo';
+}
+
 async function validateAlmacenExists(idAlmacen) {
   const almacen = await almacenService.findById(idAlmacen);
   return Boolean(almacen);
 }
 
-async function getUbicaciones(_req, res) {
+async function getUbicaciones(req, res) {
   try {
-    const ubicaciones = await ubicacionService.findAll();
+    const ubicaciones = await ubicacionService.findAll(parseEstadoQuery(req.query.estado));
 
     return res.json({
       success: true,
@@ -110,7 +115,7 @@ async function getUbicacionesByAlmacen(req, res) {
   }
 
   try {
-    const ubicaciones = await ubicacionService.findByAlmacen(idAlmacen);
+    const ubicaciones = await ubicacionService.findByAlmacen(idAlmacen, parseEstadoQuery(req.query.estado));
 
     return res.json({
       success: true,
@@ -234,11 +239,12 @@ async function deleteUbicacion(req, res) {
       });
     }
 
-    await ubicacionService.remove(idUbicacion);
+    const ubicacionDesactivada = await ubicacionService.remove(idUbicacion);
 
     return res.json({
       success: true,
-      message: 'Ubicacion eliminada correctamente.'
+      message: 'Ubicacion desactivada correctamente.',
+      data: ubicacionDesactivada
     });
   } catch (error) {
     console.error('Error al eliminar ubicacion:', error);
@@ -257,11 +263,47 @@ async function deleteUbicacion(req, res) {
   }
 }
 
+async function reactivateUbicacion(req, res) {
+  const idUbicacion = parseId(req.params.id);
+
+  if (!idUbicacion) {
+    return res.status(400).json({
+      success: false,
+      message: 'ID de ubicacion invalido.'
+    });
+  }
+
+  try {
+    const ubicacion = await ubicacionService.reactivate(idUbicacion);
+
+    if (!ubicacion) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ubicacion no encontrada.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Ubicacion reactivada correctamente.',
+      data: ubicacion
+    });
+  } catch (error) {
+    console.error('Error al reactivar ubicacion:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Error al reactivar ubicacion.'
+    });
+  }
+}
+
 module.exports = {
   getUbicaciones,
   getUbicacionById,
   getUbicacionesByAlmacen,
   createUbicacion,
   updateUbicacion,
-  deleteUbicacion
+  deleteUbicacion,
+  reactivateUbicacion
 };

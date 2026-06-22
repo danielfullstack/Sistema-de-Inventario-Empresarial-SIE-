@@ -30,6 +30,14 @@ export function renderProveedores(usuario) {
                 <span>Buscar</span>
                 <input id="supplier-search" type="search" placeholder="Buscar proveedor..." data-supplier-search />
               </label>
+              <label class="module-search" for="supplier-status-filter">
+                <span>Estado</span>
+                <select id="supplier-status-filter" data-supplier-status-filter>
+                  <option value="activo">Activos</option>
+                  <option value="inactivo">Inactivos</option>
+                  <option value="todos">Todos</option>
+                </select>
+              </label>
               <p class="module-status" data-supplier-status>Cargando proveedores...</p>
             </div>
 
@@ -104,8 +112,8 @@ export function renderProveedores(usuario) {
               <label class="field" for="supplier-status">
                 <span>Estado</span>
                 <select id="supplier-status" name="estado">
-                  <option value="Activo">Activo</option>
-                  <option value="Inactivo">Inactivo</option>
+                  <option value="activo">Activo</option>
+                  <option value="inactivo">Inactivo</option>
                 </select>
               </label>
             </div>
@@ -154,7 +162,9 @@ export function renderProveedorRows(proveedores) {
         <td>
           <div class="row-actions">
             <button class="table-action edit" type="button" data-edit-supplier="${proveedor.id_proveedor}">Editar</button>
-            <button class="table-action delete" type="button" data-delete-supplier="${proveedor.id_proveedor}">Eliminar</button>
+            ${estado === 'Activo'
+              ? `<button class="table-action delete" type="button" data-delete-supplier="${proveedor.id_proveedor}">Desactivar</button>`
+              : `<button class="table-action edit" type="button" data-reactivate-supplier="${proveedor.id_proveedor}">Reactivar</button>`}
           </div>
         </td>
       </tr>

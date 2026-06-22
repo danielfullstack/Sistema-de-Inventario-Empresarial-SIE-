@@ -4,6 +4,7 @@ import { renderAuditFilterOptions, renderAuditoria, renderAuditoriaRows, renderA
 import { renderLogin } from './components/loginView.js'
 import { renderDashboard, renderDashboardLowStock, renderDashboardMetrics, renderDashboardMovements, renderDashboardOrders } from './components/dashboardView.js'
 import { renderCategorias, renderCategoriaRows, renderParentOptions } from './components/categoriasView.js'
+import { renderKardex, renderKardexProductOptions, renderKardexRows, renderKardexSummaryCards, renderKardexWarehouseOptions } from './components/kardexView.js'
 import { getMovimientoSummary, renderMovimientoAlmacenOptions, renderMovimientoProductoOptions, renderMovimientoRows, renderMovimientos, renderMovimientoSummaryCards } from './components/movimientosView.js'
 import { renderOrdenCompraHistory, renderOrdenCompraRows, renderOrdenDetalleFormRow, renderOrdenesCompra, renderProveedorOrdenOptions } from './components/ordenesCompraView.js'
 import { renderCategoriaOptions, renderProductoRows, renderProductos } from './components/productosView.js'
@@ -12,20 +13,22 @@ import { renderComprasProveedorRows, renderMovimientosFechaRows, renderProductos
 import { getStockSummary, renderStock, renderStockAlmacenOptions, renderStockRows, renderStockSummaryCards } from './components/stockView.js'
 import { renderAlmacenOptions, renderUbicacionRows, renderUbicaciones } from './components/ubicacionesView.js'
 import { renderUsuarioRows, renderUsuarios, renderUsuarioSummaryCards } from './components/usuariosView.js'
-import { createAlmacen, deleteAlmacen, getAlmacenes, updateAlmacen } from './services/almacenService.js'
+import { createAlmacen, deleteAlmacen, getAlmacenes, reactivateAlmacen, updateAlmacen } from './services/almacenService.js'
 import { getAuditorias } from './services/auditoriaService.js'
 import { login, logout } from './services/authService.js'
-import { createCategoria, deleteCategoria, getCategorias, updateCategoria } from './services/categoriaService.js'
+import { createCategoria, deleteCategoria, getCategorias, reactivateCategoria, updateCategoria } from './services/categoriaService.js'
 import { getDashboardData } from './services/dashboardService.js'
+import { downloadExport } from './services/exportService.js'
+import { getKardexByProducto } from './services/kardexService.js'
 import { createMovimiento, getMovimientos, getMovimientosByAlmacen, getMovimientosByProducto } from './services/movimientoService.js'
 import { createOrdenCompra, getOrdenCompra, getOrdenesCompra, getOrdenesCompraByEstado, getOrdenesCompraByProveedor, updateOrdenCompraEstado } from './services/ordenCompraService.js'
-import { createProducto, deleteProducto, getProductos, getProductosByCategoria, updateProducto } from './services/productoService.js'
-import { createProveedor, deleteProveedor, getProveedores, updateProveedor } from './services/proveedorService.js'
+import { createProducto, deleteProducto, getProductos, getProductosByCategoria, reactivateProducto, updateProducto } from './services/productoService.js'
+import { createProveedor, deleteProveedor, getProveedores, reactivateProveedor, updateProveedor } from './services/proveedorService.js'
 import { getReportes } from './services/reporteService.js'
-import { getUsuario, saveUsuario, clearUsuario } from './services/sessionService.js'
+import { canAccessPath, getUsuario, saveUsuario, clearUsuario } from './services/sessionService.js'
 import { getStock, getStockByAlmacen } from './services/stockService.js'
-import { createUbicacion, deleteUbicacion, getUbicaciones, getUbicacionesByAlmacen, updateUbicacion } from './services/ubicacionService.js'
-import { createUsuario, deleteUsuario, getUsuarios, updateUsuario, updateUsuarioEstado } from './services/usuarioService.js'
+import { createUbicacion, deleteUbicacion, getUbicaciones, getUbicacionesByAlmacen, reactivateUbicacion, updateUbicacion } from './services/ubicacionService.js'
+import { createUsuario, deleteUsuario, getUsuarios, reactivateUsuario, updateUsuario, updateUsuarioEstado } from './services/usuarioService.js'
 import { validateLogin } from './utils/validators.js'
 
 const app = document.querySelector('#app')
@@ -35,6 +38,7 @@ let productosBaseState = []
 let almacenesState = []
 let ubicacionesState = []
 let stockState = []
+let kardexState = []
 let movimientosState = []
 let proveedoresState = []
 let ordenesCompraState = []
@@ -55,6 +59,16 @@ function setStatus(message, type = 'info') {
 
   statusMessage.textContent = message
   statusMessage.dataset.type = type
+}
+
+async function handleExport(moduleName, format, params = {}, setModuleStatus = setStatus) {
+  try {
+    setModuleStatus(`Generando ${format === 'pdf' ? 'PDF' : 'Excel'}...`, 'info')
+    await downloadExport(moduleName, format, params)
+    setModuleStatus('Exportacion generada correctamente.', 'success')
+  } catch (error) {
+    setModuleStatus(error.message, 'error')
+  }
 }
 
 function renderFieldErrors(errors) {
@@ -222,7 +236,8 @@ function filterCategories(searchTerm) {
 
 async function loadCategories() {
   setCategoryStatus('Cargando categorias...', 'info')
-  categoriasState = await getCategorias()
+  const estado = document.querySelector('[data-category-status-filter]')?.value || 'activo'
+  categoriasState = await getCategorias(estado)
   renderCategoryTable()
   setCategoryStatus(`${categoriasState.length} categorias registradas.`, 'success')
 }
@@ -304,9 +319,28 @@ async function handleCategorySubmit(event) {
 async function handleCategoryTableClick(event) {
   const editButton = event.target.closest('[data-edit-category]')
   const deleteButton = event.target.closest('[data-delete-category]')
+  const reactivateButton = event.target.closest('[data-reactivate-category]')
 
   if (editButton) {
     openCategoryModal(getCategoryById(editButton.dataset.editCategory))
+    return
+  }
+
+  if (reactivateButton) {
+    const categoria = getCategoryById(reactivateButton.dataset.reactivateCategory)
+
+    if (!categoria || !window.confirm(`¿Reactivar la categoria "${categoria.nombre}"?`)) {
+      return
+    }
+
+    try {
+      await reactivateCategoria(categoria.id_categoria)
+      await loadCategories()
+      setCategoryStatus('Categoria reactivada correctamente.', 'success')
+    } catch (error) {
+      setCategoryStatus(error.message, 'error')
+    }
+
     return
   }
 
@@ -320,7 +354,7 @@ async function handleCategoryTableClick(event) {
     return
   }
 
-  const confirmed = window.confirm(`¿Eliminar la categoria "${categoria.nombre}"?`)
+  const confirmed = window.confirm(`¿Desactivar la categoria "${categoria.nombre}"?`)
 
   if (!confirmed) {
     return
@@ -329,7 +363,7 @@ async function handleCategoryTableClick(event) {
   try {
     await deleteCategoria(categoria.id_categoria)
     await loadCategories()
-    setCategoryStatus('Categoria eliminada correctamente.', 'success')
+    setCategoryStatus('Categoria desactivada correctamente.', 'success')
   } catch (error) {
     setCategoryStatus(error.message, 'error')
   }
@@ -348,6 +382,15 @@ async function setupCategorias() {
   document.querySelector('[data-category-table-body]').addEventListener('click', handleCategoryTableClick)
   document.querySelector('[data-category-search]').addEventListener('input', (event) => {
     filterCategories(event.target.value)
+  })
+  document.querySelector('[data-category-status-filter]').addEventListener('change', async () => {
+    try {
+      await loadCategories()
+      filterCategories(document.querySelector('[data-category-search]').value)
+    } catch (error) {
+      setCategoryStatus(error.message, 'error')
+      renderCategoryTable([])
+    }
   })
 
   try {
@@ -411,7 +454,7 @@ function filterProducts(searchTerm) {
 }
 
 async function loadProductCategories() {
-  categoriasState = await getCategorias()
+  categoriasState = await getCategorias('activo')
   const filter = document.querySelector('[data-product-category-filter]')
 
   if (filter) {
@@ -421,7 +464,8 @@ async function loadProductCategories() {
 
 async function loadProducts(idCategoria = '') {
   setProductStatus('Cargando productos...', 'info')
-  productosBaseState = idCategoria ? await getProductosByCategoria(idCategoria) : await getProductos()
+  const estado = document.querySelector('[data-product-status-filter]')?.value || 'activo'
+  productosBaseState = idCategoria ? await getProductosByCategoria(idCategoria, estado) : await getProductos(estado)
   productosState = productosBaseState
   renderProductTable()
   setProductStatus(`${productosState.length} productos registrados.`, 'success')
@@ -448,7 +492,7 @@ function openProductModal(producto = null) {
   form.elements.unidad_medida.value = producto?.unidad_medida || ''
   form.elements.stock_minimo.value = producto?.stock_minimo ?? 0
   form.elements.stock_maximo.value = producto?.stock_maximo ?? 0
-  form.elements.estado.value = producto?.estado || 'Activo'
+  form.elements.estado.value = String(producto?.estado || 'activo').toLowerCase()
   categorySelect.innerHTML = renderCategoriaOptions(categoriasState, producto?.id_categoria || null)
   title.textContent = producto ? 'Editar Producto' : 'Nuevo Producto'
   clearProductErrors()
@@ -473,7 +517,7 @@ function getProductPayload(form) {
     stock_minimo: String(formData.get('stock_minimo') || '0').trim(),
     stock_maximo: String(formData.get('stock_maximo') || '0').trim(),
     id_categoria: String(formData.get('id_categoria') || '').trim(),
-    estado: String(formData.get('estado') || 'Activo').trim()
+    estado: String(formData.get('estado') || 'activo').trim()
   }
 }
 
@@ -562,9 +606,28 @@ async function handleProductSubmit(event) {
 async function handleProductTableClick(event) {
   const editButton = event.target.closest('[data-edit-product]')
   const deleteButton = event.target.closest('[data-delete-product]')
+  const reactivateButton = event.target.closest('[data-reactivate-product]')
 
   if (editButton) {
     openProductModal(getProductById(editButton.dataset.editProduct))
+    return
+  }
+
+  if (reactivateButton) {
+    const producto = getProductById(reactivateButton.dataset.reactivateProduct)
+
+    if (!producto || !window.confirm(`¿Reactivar el producto "${producto.nombre}"?`)) {
+      return
+    }
+
+    try {
+      await reactivateProducto(producto.id_producto)
+      await loadProducts(document.querySelector('[data-product-category-filter]').value)
+      setProductStatus('Producto reactivado correctamente.', 'success')
+    } catch (error) {
+      setProductStatus(error.message, 'error')
+    }
+
     return
   }
 
@@ -578,7 +641,7 @@ async function handleProductTableClick(event) {
     return
   }
 
-  const confirmed = window.confirm(`¿Eliminar el producto "${producto.nombre}"?`)
+  const confirmed = window.confirm(`¿Desactivar el producto "${producto.nombre}"?`)
 
   if (!confirmed) {
     return
@@ -587,7 +650,7 @@ async function handleProductTableClick(event) {
   try {
     await deleteProducto(producto.id_producto)
     await loadProducts(document.querySelector('[data-product-category-filter]').value)
-    setProductStatus('Producto eliminado correctamente.', 'success')
+    setProductStatus('Producto desactivado correctamente.', 'success')
   } catch (error) {
     setProductStatus(error.message, 'error')
   }
@@ -610,6 +673,15 @@ async function setupProductos() {
   document.querySelector('[data-product-category-filter]').addEventListener('change', async (event) => {
     try {
       await loadProducts(event.target.value)
+      filterProducts(document.querySelector('[data-product-search]').value)
+    } catch (error) {
+      setProductStatus(error.message, 'error')
+      renderProductTable([])
+    }
+  })
+  document.querySelector('[data-product-status-filter]').addEventListener('change', async () => {
+    try {
+      await loadProducts(document.querySelector('[data-product-category-filter]').value)
       filterProducts(document.querySelector('[data-product-search]').value)
     } catch (error) {
       setProductStatus(error.message, 'error')
@@ -681,7 +753,8 @@ function filterWarehouses(searchTerm) {
 
 async function loadWarehouses() {
   setWarehouseStatus('Cargando almacenes...', 'info')
-  const almacenes = await getAlmacenes()
+  const estado = document.querySelector('[data-warehouse-status-filter]')?.value || 'activo'
+  const almacenes = await getAlmacenes(estado)
 
   if (!Array.isArray(almacenes)) {
     throw new Error('La API de almacenes no devolvio una lista valida.')
@@ -798,9 +871,28 @@ async function handleWarehouseSubmit(event) {
 async function handleWarehouseTableClick(event) {
   const editButton = event.target.closest('[data-edit-warehouse]')
   const deleteButton = event.target.closest('[data-delete-warehouse]')
+  const reactivateButton = event.target.closest('[data-reactivate-warehouse]')
 
   if (editButton) {
     openWarehouseModal(getWarehouseById(editButton.dataset.editWarehouse))
+    return
+  }
+
+  if (reactivateButton) {
+    const almacen = getWarehouseById(reactivateButton.dataset.reactivateWarehouse)
+
+    if (!almacen || !window.confirm(`¿Reactivar el almacen "${almacen.nombre}"?`)) {
+      return
+    }
+
+    try {
+      await reactivateAlmacen(almacen.id_almacen)
+      await loadWarehouses()
+      setWarehouseStatus('Almacen reactivado correctamente.', 'success')
+    } catch (error) {
+      setWarehouseStatus(error.message, 'error')
+    }
+
     return
   }
 
@@ -814,7 +906,7 @@ async function handleWarehouseTableClick(event) {
     return
   }
 
-  const confirmed = window.confirm(`¿Eliminar el almacen "${almacen.nombre}"?`)
+  const confirmed = window.confirm(`¿Desactivar el almacen "${almacen.nombre}"?`)
 
   if (!confirmed) {
     return
@@ -823,7 +915,7 @@ async function handleWarehouseTableClick(event) {
   try {
     await deleteAlmacen(almacen.id_almacen)
     await loadWarehouses()
-    setWarehouseStatus('Almacen eliminado correctamente.', 'success')
+    setWarehouseStatus('Almacen desactivado correctamente.', 'success')
   } catch (error) {
     setWarehouseStatus(error.message, 'error')
   }
@@ -842,6 +934,15 @@ async function setupAlmacenes() {
   document.querySelector('[data-warehouse-table-body]').addEventListener('click', handleWarehouseTableClick)
   document.querySelector('[data-warehouse-search]').addEventListener('input', (event) => {
     filterWarehouses(event.target.value)
+  })
+  document.querySelector('[data-warehouse-status-filter]').addEventListener('change', async () => {
+    try {
+      await loadWarehouses()
+      filterWarehouses(document.querySelector('[data-warehouse-search]').value)
+    } catch (error) {
+      setWarehouseStatus(error.message, 'error')
+      renderWarehouseTable([])
+    }
   })
 
   try {
@@ -907,7 +1008,7 @@ function filterLocations(searchTerm) {
 }
 
 async function loadLocationWarehouses() {
-  almacenesState = await getAlmacenes()
+  almacenesState = await getAlmacenes('activo')
   const filter = document.querySelector('[data-location-warehouse-filter]')
 
   if (filter) {
@@ -917,7 +1018,8 @@ async function loadLocationWarehouses() {
 
 async function loadLocations(idAlmacen = '') {
   setLocationStatus('Cargando ubicaciones...', 'info')
-  const ubicaciones = idAlmacen ? await getUbicacionesByAlmacen(idAlmacen) : await getUbicaciones()
+  const estado = document.querySelector('[data-location-status-filter]')?.value || 'activo'
+  const ubicaciones = idAlmacen ? await getUbicacionesByAlmacen(idAlmacen, estado) : await getUbicaciones(estado)
 
   if (!Array.isArray(ubicaciones)) {
     throw new Error('La API de ubicaciones no devolvio una lista valida.')
@@ -1043,9 +1145,28 @@ async function handleLocationSubmit(event) {
 async function handleLocationTableClick(event) {
   const editButton = event.target.closest('[data-edit-location]')
   const deleteButton = event.target.closest('[data-delete-location]')
+  const reactivateButton = event.target.closest('[data-reactivate-location]')
 
   if (editButton) {
     openLocationModal(getLocationById(editButton.dataset.editLocation))
+    return
+  }
+
+  if (reactivateButton) {
+    const ubicacion = getLocationById(reactivateButton.dataset.reactivateLocation)
+
+    if (!ubicacion || !window.confirm(`¿Reactivar la ubicacion "${ubicacion.codigo}"?`)) {
+      return
+    }
+
+    try {
+      await reactivateUbicacion(ubicacion.id_ubicacion)
+      await loadLocations(document.querySelector('[data-location-warehouse-filter]').value)
+      setLocationStatus('Ubicacion reactivada correctamente.', 'success')
+    } catch (error) {
+      setLocationStatus(error.message, 'error')
+    }
+
     return
   }
 
@@ -1059,7 +1180,7 @@ async function handleLocationTableClick(event) {
     return
   }
 
-  const confirmed = window.confirm(`Eliminar la ubicacion "${ubicacion.codigo}"?`)
+  const confirmed = window.confirm(`¿Desactivar la ubicacion "${ubicacion.codigo}"?`)
 
   if (!confirmed) {
     return
@@ -1068,7 +1189,7 @@ async function handleLocationTableClick(event) {
   try {
     await deleteUbicacion(ubicacion.id_ubicacion)
     await loadLocations(document.querySelector('[data-location-warehouse-filter]').value)
-    setLocationStatus('Ubicacion eliminada correctamente.', 'success')
+    setLocationStatus('Ubicacion desactivada correctamente.', 'success')
   } catch (error) {
     setLocationStatus(error.message, 'error')
   }
@@ -1097,6 +1218,15 @@ async function setupUbicaciones() {
       renderLocationTable([])
     }
   })
+  document.querySelector('[data-location-status-filter]').addEventListener('change', async () => {
+    try {
+      await loadLocations(document.querySelector('[data-location-warehouse-filter]').value)
+      filterLocations(document.querySelector('[data-location-search]').value)
+    } catch (error) {
+      setLocationStatus(error.message, 'error')
+      renderLocationTable([])
+    }
+  })
 
   try {
     await loadLocationWarehouses()
@@ -1116,6 +1246,135 @@ function setStockStatus(message, type = 'info') {
 
   status.textContent = message
   status.dataset.type = type
+}
+
+function setKardexStatus(message, type = 'info') {
+  const status = document.querySelector('[data-kardex-status]')
+
+  if (!status) {
+    return
+  }
+
+  status.textContent = message
+  status.dataset.type = type
+}
+
+function renderKardexTable(items = kardexState) {
+  const tbody = document.querySelector('[data-kardex-table-body]')
+
+  if (tbody) {
+    tbody.innerHTML = renderKardexRows(items)
+  }
+}
+
+function renderKardexSummary(summary = {}) {
+  const element = document.querySelector('[data-kardex-summary]')
+
+  if (element) {
+    element.innerHTML = renderKardexSummaryCards(summary)
+  }
+}
+
+async function loadKardexCatalogs() {
+  const [productos, almacenes] = await Promise.all([
+    getProductos('activo'),
+    getAlmacenes('activo')
+  ])
+
+  productosState = productos
+  almacenesState = almacenes
+  document.querySelector('[data-kardex-product-filter]').innerHTML = renderKardexProductOptions(productosState)
+  document.querySelector('[data-kardex-warehouse-filter]').innerHTML = renderKardexWarehouseOptions(almacenesState)
+}
+
+async function loadKardex() {
+  const idProducto = String(document.querySelector('[data-kardex-product-filter]')?.value || '').trim()
+  const idAlmacen = String(document.querySelector('[data-kardex-warehouse-filter]')?.value || '').trim()
+  const fechaInicio = String(document.querySelector('[data-kardex-start-date]')?.value || '').trim()
+  const fechaFin = String(document.querySelector('[data-kardex-end-date]')?.value || '').trim()
+
+  if (!idProducto) {
+    kardexState = []
+    renderKardexSummary()
+    document.querySelector('[data-kardex-table-body]').innerHTML = `
+      <tr>
+        <td colspan="9">Seleccione un producto para visualizar el Kardex.</td>
+      </tr>
+    `
+    setKardexStatus('Seleccione un producto para visualizar el Kardex.', 'info')
+    return
+  }
+
+  setKardexStatus('Consultando Kardex...', 'info')
+  const response = await getKardexByProducto(idProducto, {
+    idAlmacen,
+    fechaInicio,
+    fechaFin
+  })
+
+  kardexState = response.data || []
+  renderKardexSummary(response.summary || {})
+  renderKardexTable()
+  setKardexStatus(`${kardexState.length} movimientos encontrados.`, 'success')
+}
+
+async function setupKardex() {
+  setupAuthenticatedNavigation()
+
+  const getKardexExportParams = () => ({
+    id_producto: String(document.querySelector('[data-kardex-product-filter]')?.value || '').trim(),
+    id_almacen: String(document.querySelector('[data-kardex-warehouse-filter]')?.value || '').trim(),
+    fechaInicio: String(document.querySelector('[data-kardex-start-date]')?.value || '').trim(),
+    fechaFin: String(document.querySelector('[data-kardex-end-date]')?.value || '').trim()
+  })
+
+  document.querySelector('[data-export-kardex-pdf]').addEventListener('click', () => {
+    handleExport('kardex', 'pdf', getKardexExportParams(), setKardexStatus)
+  })
+  document.querySelector('[data-export-kardex-excel]').addEventListener('click', () => {
+    handleExport('kardex', 'excel', getKardexExportParams(), setKardexStatus)
+  })
+
+  document.querySelector('[data-kardex-product-filter]').addEventListener('change', async () => {
+    try {
+      await loadKardex()
+    } catch (error) {
+      setKardexStatus(error.message, 'error')
+      renderKardexTable([])
+    }
+  })
+  document.querySelector('[data-kardex-warehouse-filter]').addEventListener('change', async () => {
+    try {
+      await loadKardex()
+    } catch (error) {
+      setKardexStatus(error.message, 'error')
+      renderKardexTable([])
+    }
+  })
+  document.querySelector('[data-kardex-start-date]').addEventListener('change', async () => {
+    try {
+      await loadKardex()
+    } catch (error) {
+      setKardexStatus(error.message, 'error')
+      renderKardexTable([])
+    }
+  })
+  document.querySelector('[data-kardex-end-date]').addEventListener('change', async () => {
+    try {
+      await loadKardex()
+    } catch (error) {
+      setKardexStatus(error.message, 'error')
+      renderKardexTable([])
+    }
+  })
+
+  try {
+    await loadKardexCatalogs()
+    await loadKardex()
+  } catch (error) {
+    setKardexStatus(error.message, 'error')
+    renderKardexTable([])
+  }
 }
 
 function renderStockTable(stockItems = stockState) {
@@ -1174,6 +1433,13 @@ async function loadStock(idAlmacen = '') {
 
 async function setupStock() {
   setupAuthenticatedNavigation()
+
+  document.querySelector('[data-export-stock-pdf]').addEventListener('click', () => {
+    handleExport('stock', 'pdf', {}, setStockStatus)
+  })
+  document.querySelector('[data-export-stock-excel]').addEventListener('click', () => {
+    handleExport('stock', 'excel', {}, setStockStatus)
+  })
 
   document.querySelector('[data-stock-search]').addEventListener('input', filterStock)
   document.querySelector('[data-stock-product-filter]').addEventListener('input', filterStock)
@@ -1396,6 +1662,13 @@ async function handleMovementSubmit(event) {
 async function setupMovimientos() {
   setupAuthenticatedNavigation()
 
+  document.querySelector('[data-export-movements-pdf]').addEventListener('click', () => {
+    handleExport('movimientos', 'pdf', {}, setMovementStatus)
+  })
+  document.querySelector('[data-export-movements-excel]').addEventListener('click', () => {
+    handleExport('movimientos', 'excel', {}, setMovementStatus)
+  })
+
   document.querySelector('[data-open-movement-modal]').addEventListener('click', openMovementModal)
   document.querySelectorAll('[data-close-movement-modal]').forEach((button) => {
     button.addEventListener('click', closeMovementModal)
@@ -1487,7 +1760,8 @@ function filterSuppliers(searchTerm = '') {
 
 async function loadSuppliers() {
   setSupplierStatus('Cargando proveedores...', 'info')
-  const proveedores = await getProveedores()
+  const estado = document.querySelector('[data-supplier-status-filter]')?.value || 'activo'
+  const proveedores = await getProveedores(estado)
 
   if (!Array.isArray(proveedores)) {
     throw new Error('La API de proveedores no devolvio una lista valida.')
@@ -1516,7 +1790,7 @@ function openSupplierModal(proveedor = null) {
   form.elements.telefono.value = proveedor?.telefono || ''
   form.elements.email.value = proveedor?.email || ''
   form.elements.direccion.value = proveedor?.direccion || ''
-  form.elements.estado.value = String(proveedor?.estado || '').toLowerCase() === 'inactivo' ? 'Inactivo' : 'Activo'
+  form.elements.estado.value = String(proveedor?.estado || 'activo').toLowerCase()
   title.textContent = proveedor ? 'Editar Proveedor' : 'Nuevo Proveedor'
   clearSupplierErrors()
   setSupplierFormStatus('', 'info')
@@ -1537,7 +1811,7 @@ function getSupplierPayload(form) {
     telefono: String(formData.get('telefono') || '').trim(),
     email: String(formData.get('email') || '').trim(),
     direccion: String(formData.get('direccion') || '').trim(),
-    estado: String(formData.get('estado') || 'Activo').trim()
+    estado: String(formData.get('estado') || 'activo').trim()
   }
 }
 
@@ -1611,9 +1885,29 @@ async function handleSupplierSubmit(event) {
 async function handleSupplierTableClick(event) {
   const editButton = event.target.closest('[data-edit-supplier]')
   const deleteButton = event.target.closest('[data-delete-supplier]')
+  const reactivateButton = event.target.closest('[data-reactivate-supplier]')
 
   if (editButton) {
     openSupplierModal(getSupplierById(editButton.dataset.editSupplier))
+    return
+  }
+
+  if (reactivateButton) {
+    const proveedor = getSupplierById(reactivateButton.dataset.reactivateSupplier)
+
+    if (!proveedor || !window.confirm(`¿Reactivar el proveedor "${proveedor.razon_social}"?`)) {
+      return
+    }
+
+    try {
+      await reactivateProveedor(proveedor.id_proveedor)
+      await loadSuppliers()
+      filterSuppliers(document.querySelector('[data-supplier-search]').value)
+      setSupplierStatus('Proveedor reactivado correctamente.', 'success')
+    } catch (error) {
+      setSupplierStatus(error.message, 'error')
+    }
+
     return
   }
 
@@ -1627,7 +1921,7 @@ async function handleSupplierTableClick(event) {
     return
   }
 
-  const confirmed = window.confirm(`Eliminar el proveedor "${proveedor.razon_social}"?`)
+  const confirmed = window.confirm(`¿Desactivar el proveedor "${proveedor.razon_social}"?`)
 
   if (!confirmed) {
     return
@@ -1637,7 +1931,7 @@ async function handleSupplierTableClick(event) {
     await deleteProveedor(proveedor.id_proveedor)
     await loadSuppliers()
     filterSuppliers(document.querySelector('[data-supplier-search]').value)
-    setSupplierStatus('Proveedor eliminado correctamente.', 'success')
+    setSupplierStatus('Proveedor desactivado correctamente.', 'success')
   } catch (error) {
     setSupplierStatus(error.message, 'error')
   }
@@ -1656,6 +1950,15 @@ async function setupProveedores() {
   document.querySelector('[data-supplier-table-body]').addEventListener('click', handleSupplierTableClick)
   document.querySelector('[data-supplier-search]').addEventListener('input', (event) => {
     filterSuppliers(event.target.value)
+  })
+  document.querySelector('[data-supplier-status-filter]').addEventListener('change', async () => {
+    try {
+      await loadSuppliers()
+      filterSuppliers(document.querySelector('[data-supplier-search]').value)
+    } catch (error) {
+      setSupplierStatus(error.message, 'error')
+      renderSupplierTable([])
+    }
   })
 
   try {
@@ -2070,7 +2373,7 @@ function filterUsers() {
 
 async function loadUsers() {
   setUserStatus('Cargando usuarios...', 'info')
-  const usuarios = await getUsuarios()
+  const usuarios = await getUsuarios('todos')
 
   if (!Array.isArray(usuarios)) {
     throw new Error('La API de usuarios no devolvio una lista valida.')
@@ -2243,7 +2546,7 @@ async function handleUserTableClick(event) {
       await deleteUsuario(usuario.id)
       setUserStatus('Usuario desactivado correctamente.', 'success')
     } else {
-      await updateUsuarioEstado(usuario.id, 'activo')
+      await reactivateUsuario(usuario.id)
       setUserStatus('Usuario reactivado correctamente.', 'success')
     }
 
@@ -2332,6 +2635,18 @@ async function loadReports() {
 
 async function setupReportes() {
   setupAuthenticatedNavigation()
+
+  const getReportExportParams = () => ({
+    fechaInicio: String(document.querySelector('[data-report-start-date]')?.value || '').trim(),
+    fechaFin: String(document.querySelector('[data-report-end-date]')?.value || '').trim()
+  })
+
+  document.querySelector('[data-export-reports-pdf]').addEventListener('click', () => {
+    handleExport('reportes', 'pdf', getReportExportParams(), setReportStatus)
+  })
+  document.querySelector('[data-export-reports-excel]').addEventListener('click', () => {
+    handleExport('reportes', 'excel', getReportExportParams(), setReportStatus)
+  })
 
   document.querySelector('[data-refresh-reports]').addEventListener('click', async () => {
     try {
@@ -2432,6 +2747,13 @@ async function loadAudits() {
 async function setupAuditoria() {
   setupAuthenticatedNavigation()
 
+  document.querySelector('[data-export-audit-pdf]').addEventListener('click', () => {
+    handleExport('auditoria', 'pdf', {}, setAuditStatus)
+  })
+  document.querySelector('[data-export-audit-excel]').addEventListener('click', () => {
+    handleExport('auditoria', 'excel', {}, setAuditStatus)
+  })
+
   document.querySelector('[data-audit-search]').addEventListener('input', filterAudits)
   document.querySelector('[data-audit-user-filter]').addEventListener('change', filterAudits)
   document.querySelector('[data-audit-module-filter]').addEventListener('change', filterAudits)
@@ -2449,12 +2771,21 @@ async function setupAuditoria() {
 function renderApp() {
   const path = window.location.pathname
   const usuario = getUsuario()
+  const protectedPaths = ['/dashboard', '/categorias', '/productos', '/almacenes', '/ubicaciones', '/stock', '/kardex', '/movimientos', '/proveedores', '/ordenes-compra', '/usuarios', '/reportes', '/auditoria']
 
-  if (path === '/dashboard' || path === '/categorias' || path === '/productos' || path === '/almacenes' || path === '/ubicaciones' || path === '/stock' || path === '/movimientos' || path === '/proveedores' || path === '/ordenes-compra' || path === '/usuarios' || path === '/reportes' || path === '/auditoria') {
+  if (protectedPaths.includes(path)) {
     if (!usuario) {
       window.history.replaceState({}, '', '/')
       app.innerHTML = renderLogin()
       setupLogin()
+      return
+    }
+
+    if (!canAccessPath(usuario, path)) {
+      window.history.replaceState({}, '', '/dashboard')
+      app.innerHTML = renderDashboard(usuario)
+      setupDashboard()
+      setDashboardStatus('No tiene permisos para acceder a este modulo.', 'error')
       return
     }
 
@@ -2485,6 +2816,12 @@ function renderApp() {
     if (path === '/stock') {
       app.innerHTML = renderStock(usuario)
       setupStock()
+      return
+    }
+
+    if (path === '/kardex') {
+      app.innerHTML = renderKardex(usuario)
+      setupKardex()
       return
     }
 

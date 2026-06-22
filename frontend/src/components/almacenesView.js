@@ -12,6 +12,10 @@ function formatDate(value) {
   }).format(new Date(value))
 }
 
+function normalizeEstado(estado = '') {
+  return String(estado).toLowerCase() === 'inactivo' ? 'Inactivo' : 'Activo'
+}
+
 export function renderAlmacenes(usuario) {
   return `
     <main class="erp-shell">
@@ -38,6 +42,14 @@ export function renderAlmacenes(usuario) {
                 <span>Buscar</span>
                 <input id="warehouse-search" type="search" placeholder="Buscar almacen..." data-warehouse-search />
               </label>
+              <label class="module-search" for="warehouse-status-filter">
+                <span>Estado</span>
+                <select id="warehouse-status-filter" data-warehouse-status-filter>
+                  <option value="activo">Activos</option>
+                  <option value="inactivo">Inactivos</option>
+                  <option value="todos">Todos</option>
+                </select>
+              </label>
               <p class="module-status" data-warehouse-status>Cargando almacenes...</p>
             </div>
 
@@ -50,13 +62,14 @@ export function renderAlmacenes(usuario) {
                     <th>Direccion</th>
                     <th>Capacidad</th>
                     <th>Tipo</th>
+                    <th>Estado</th>
                     <th>Fecha creacion</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody data-warehouse-table-body>
                   <tr>
-                    <td colspan="7">Cargando almacenes...</td>
+                    <td colspan="8">Cargando almacenes...</td>
                   </tr>
                 </tbody>
               </table>
@@ -123,7 +136,7 @@ export function renderAlmacenRows(almacenes) {
   if (!Array.isArray(almacenes)) {
     return `
       <tr>
-        <td colspan="7">No se pudo interpretar la lista de almacenes.</td>
+        <td colspan="8">No se pudo interpretar la lista de almacenes.</td>
       </tr>
     `
   }
@@ -131,25 +144,32 @@ export function renderAlmacenRows(almacenes) {
   if (almacenes.length === 0) {
     return `
       <tr>
-        <td colspan="7">No se encontraron almacenes.</td>
+        <td colspan="8">No se encontraron almacenes.</td>
       </tr>
     `
   }
 
-  return almacenes.map((almacen) => `
-    <tr>
-      <td>${almacen.id_almacen}</td>
-      <td><strong>${escapeHtml(almacen.nombre)}</strong></td>
-      <td>${escapeHtml(almacen.direccion || '-')}</td>
-      <td>${almacen.capacidad_total ?? 0}</td>
-      <td><span class="warehouse-type">${escapeHtml(almacen.tipo || '-')}</span></td>
-      <td>${formatDate(almacen.created_at)}</td>
-      <td>
-        <div class="row-actions">
-          <button class="table-action edit" type="button" data-edit-warehouse="${almacen.id_almacen}">Editar</button>
-          <button class="table-action delete" type="button" data-delete-warehouse="${almacen.id_almacen}">Eliminar</button>
-        </div>
-      </td>
-    </tr>
-  `).join('')
+  return almacenes.map((almacen) => {
+    const estado = normalizeEstado(almacen.estado)
+
+    return `
+      <tr>
+        <td>${almacen.id_almacen}</td>
+        <td><strong>${escapeHtml(almacen.nombre)}</strong></td>
+        <td>${escapeHtml(almacen.direccion || '-')}</td>
+        <td>${almacen.capacidad_total ?? 0}</td>
+        <td><span class="warehouse-type">${escapeHtml(almacen.tipo || '-')}</span></td>
+        <td><span class="status-badge ${estado === 'Activo' ? 'active' : 'inactive'}">${estado}</span></td>
+        <td>${formatDate(almacen.created_at)}</td>
+        <td>
+          <div class="row-actions">
+            <button class="table-action edit" type="button" data-edit-warehouse="${almacen.id_almacen}">Editar</button>
+            ${estado === 'Activo'
+              ? `<button class="table-action delete" type="button" data-delete-warehouse="${almacen.id_almacen}">Desactivar</button>`
+              : `<button class="table-action edit" type="button" data-reactivate-warehouse="${almacen.id_almacen}">Reactivar</button>`}
+          </div>
+        </td>
+      </tr>
+    `
+  }).join('')
 }

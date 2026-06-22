@@ -35,9 +35,14 @@ function validatePayload(payload) {
   return null;
 }
 
-async function getAlmacenes(_req, res) {
+function parseEstadoQuery(value) {
+  const estado = String(value || 'activo').trim().toLowerCase();
+  return ['activo', 'inactivo', 'todos'].includes(estado) ? estado : 'activo';
+}
+
+async function getAlmacenes(req, res) {
   try {
-    const almacenes = await almacenService.findAll();
+    const almacenes = await almacenService.findAll(parseEstadoQuery(req.query.estado));
 
     return res.json({
       success: true,
@@ -181,11 +186,12 @@ async function deleteAlmacen(req, res) {
       });
     }
 
-    await almacenService.remove(idAlmacen);
+    const almacenDesactivado = await almacenService.remove(idAlmacen);
 
     return res.json({
       success: true,
-      message: 'Almacen eliminado correctamente.'
+      message: 'Almacen desactivado correctamente.',
+      data: almacenDesactivado
     });
   } catch (error) {
     console.error('Error al eliminar almacen:', error);
@@ -204,10 +210,46 @@ async function deleteAlmacen(req, res) {
   }
 }
 
+async function reactivateAlmacen(req, res) {
+  const idAlmacen = parseId(req.params.id);
+
+  if (!idAlmacen) {
+    return res.status(400).json({
+      success: false,
+      message: 'ID de almacen invalido.'
+    });
+  }
+
+  try {
+    const almacen = await almacenService.reactivate(idAlmacen);
+
+    if (!almacen) {
+      return res.status(404).json({
+        success: false,
+        message: 'Almacen no encontrado.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Almacen reactivado correctamente.',
+      data: almacen
+    });
+  } catch (error) {
+    console.error('Error al reactivar almacen:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Error al reactivar almacen.'
+    });
+  }
+}
+
 module.exports = {
   getAlmacenes,
   getAlmacenById,
   createAlmacen,
   updateAlmacen,
-  deleteAlmacen
+  deleteAlmacen,
+  reactivateAlmacen
 };

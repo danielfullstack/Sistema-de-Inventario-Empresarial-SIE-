@@ -7,17 +7,29 @@ const baseSelect = `
     c.descripcion,
     c.id_categoria_padre,
     padre.nombre AS categoria_padre,
+    c.estado,
     c.created_at,
     c.updated_at
   FROM categoria c
   LEFT JOIN categoria padre ON padre.id_categoria = c.id_categoria_padre
 `;
 
-async function findAll() {
+function buildEstadoFilter(estado, alias = 'c') {
+  if (estado === 'todos') {
+    return { clause: '', params: [] };
+  }
+
+  const normalized = estado === 'inactivo' ? 'inactivo' : 'activo';
+  return { clause: `WHERE LOWER(${alias}.estado) = $1`, params: [normalized] };
+}
+
+async function findAll(estado = 'activo') {
+  const filter = buildEstadoFilter(estado);
   const { rows } = await pool.query(`
     ${baseSelect}
+    ${filter.clause}
     ORDER BY c.id_categoria ASC
-  `);
+  `, filter.params);
 
   return rows;
 }
@@ -66,13 +78,30 @@ async function update(idCategoria, { nombre, descripcion, idCategoriaPadre }) {
   return findById(rows[0].id_categoria);
 }
 
-async function remove(idCategoria) {
-  const { rowCount } = await pool.query(
-    'DELETE FROM categoria WHERE id_categoria = $1',
-    [idCategoria]
+async function updateEstado(idCategoria, estado) {
+  const { rows } = await pool.query(
+    `
+      UPDATE categoria
+      SET estado = $1, updated_at = NOW()
+      WHERE id_categoria = $2
+      RETURNING id_categoria
+    `,
+    [estado, idCategoria]
   );
 
-  return rowCount > 0;
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return findById(rows[0].id_categoria);
+}
+
+async function remove(idCategoria) {
+  return updateEstado(idCategoria, 'inactivo');
+}
+
+async function reactivate(idCategoria) {
+  return updateEstado(idCategoria, 'activo');
 }
 
 async function hasChildren(idCategoria) {
@@ -89,6 +118,8 @@ module.exports = {
   findById,
   create,
   update,
+  updateEstado,
   remove,
+  reactivate,
   hasChildren
 };

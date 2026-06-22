@@ -6,7 +6,7 @@ function parseId(value) {
 }
 
 function parsePayload(body) {
-  const estado = String(body.estado || 'Activo').trim();
+  const estado = String(body.estado || 'activo').trim().toLowerCase();
 
   return {
     razonSocial: String(body.razon_social || '').trim(),
@@ -14,7 +14,7 @@ function parsePayload(body) {
     telefono: String(body.telefono || '').trim() || null,
     email: String(body.email || '').trim() || null,
     direccion: String(body.direccion || '').trim() || null,
-    estado: estado || 'Activo'
+    estado: estado || 'activo'
   };
 }
 
@@ -31,7 +31,7 @@ function validatePayload(payload) {
     return 'El email ingresado no es valido.';
   }
 
-  if (!['Activo', 'Inactivo', 'activo', 'inactivo'].includes(payload.estado)) {
+  if (!['activo', 'inactivo'].includes(payload.estado)) {
     return 'El estado seleccionado no es valido.';
   }
 
@@ -48,9 +48,14 @@ async function validateUniqueRuc(ruc, idProveedorActual = null) {
   return proveedor.id_proveedor === idProveedorActual;
 }
 
-async function getProveedores(_req, res) {
+function parseEstadoQuery(value) {
+  const estado = String(value || 'activo').trim().toLowerCase();
+  return ['activo', 'inactivo', 'todos'].includes(estado) ? estado : 'activo';
+}
+
+async function getProveedores(req, res) {
   try {
-    const proveedores = await proveedorService.findAll();
+    const proveedores = await proveedorService.findAll(parseEstadoQuery(req.query.estado));
 
     return res.json({
       success: true,
@@ -208,11 +213,12 @@ async function deleteProveedor(req, res) {
       });
     }
 
-    await proveedorService.remove(idProveedor);
+    const proveedorDesactivado = await proveedorService.remove(idProveedor);
 
     return res.json({
       success: true,
-      message: 'Proveedor eliminado correctamente.'
+      message: 'Proveedor desactivado correctamente.',
+      data: proveedorDesactivado
     });
   } catch (error) {
     console.error('Error al eliminar proveedor:', error);
@@ -231,10 +237,46 @@ async function deleteProveedor(req, res) {
   }
 }
 
+async function reactivateProveedor(req, res) {
+  const idProveedor = parseId(req.params.id);
+
+  if (!idProveedor) {
+    return res.status(400).json({
+      success: false,
+      message: 'ID de proveedor invalido.'
+    });
+  }
+
+  try {
+    const proveedor = await proveedorService.reactivate(idProveedor);
+
+    if (!proveedor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Proveedor no encontrado.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Proveedor reactivado correctamente.',
+      data: proveedor
+    });
+  } catch (error) {
+    console.error('Error al reactivar proveedor:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Error al reactivar proveedor.'
+    });
+  }
+}
+
 module.exports = {
   getProveedores,
   getProveedorById,
   createProveedor,
   updateProveedor,
-  deleteProveedor
+  deleteProveedor,
+  reactivateProveedor
 };

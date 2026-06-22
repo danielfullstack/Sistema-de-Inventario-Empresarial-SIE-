@@ -7,16 +7,28 @@ const baseSelect = `
     direccion,
     capacidad_total,
     tipo,
+    estado,
     created_at,
     updated_at
   FROM almacen
 `;
 
-async function findAll() {
+function buildEstadoFilter(estado) {
+  if (estado === 'todos') {
+    return { clause: '', params: [] };
+  }
+
+  const normalized = estado === 'inactivo' ? 'inactivo' : 'activo';
+  return { clause: 'WHERE LOWER(estado) = $1', params: [normalized] };
+}
+
+async function findAll(estado = 'activo') {
+  const filter = buildEstadoFilter(estado);
   const { rows } = await pool.query(`
     ${baseSelect}
+    ${filter.clause}
     ORDER BY id_almacen ASC
-  `);
+  `, filter.params);
 
   return rows;
 }
@@ -66,13 +78,39 @@ async function update(idAlmacen, { nombre, direccion, capacidadTotal, tipo }) {
   return findById(rows[0].id_almacen);
 }
 
+async function updateEstado(idAlmacen, estado) {
+  const { rows } = await pool.query(
+    `
+      UPDATE almacen
+      SET estado = $1, updated_at = NOW()
+      WHERE id_almacen = $2
+      RETURNING id_almacen
+    `,
+    [estado, idAlmacen]
+  );
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return findById(rows[0].id_almacen);
+}
+
 async function remove(idAlmacen) {
-  const { rowCount } = await pool.query(
-    'DELETE FROM almacen WHERE id_almacen = $1',
+  return updateEstado(idAlmacen, 'inactivo');
+}
+
+async function reactivate(idAlmacen) {
+  return updateEstado(idAlmacen, 'activo');
+}
+
+async function hasStock(idAlmacen) {
+  const { rows } = await pool.query(
+    'SELECT 1 FROM stock WHERE id_almacen = $1 LIMIT 1',
     [idAlmacen]
   );
 
-  return rowCount > 0;
+  return rows.length > 0;
 }
 
 module.exports = {
@@ -80,5 +118,8 @@ module.exports = {
   findById,
   create,
   update,
-  remove
+  updateEstado,
+  remove,
+  reactivate,
+  hasStock
 };

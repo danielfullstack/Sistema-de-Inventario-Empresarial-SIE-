@@ -38,6 +38,10 @@ export function renderReportes(usuario) {
                 <p class="eyebrow">Analisis operativo</p>
                 <h1>Reportes</h1>
               </div>
+              <div class="row-actions">
+                <button class="secondary-button" type="button" data-export-reports-pdf>Exportar PDF</button>
+                <button class="secondary-button" type="button" data-export-reports-excel>Exportar Excel</button>
+              </div>
             </div>
 
             <section class="stock-summary-grid" data-report-summary>

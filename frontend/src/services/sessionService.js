@@ -1,6 +1,67 @@
 const USER_STORAGE_KEY = 'usuario'
 const TOKEN_STORAGE_KEY = 'token'
 const LEGACY_USER_STORAGE_KEY = 'sie_usuario'
+const ROLE_PERMISSIONS = {
+  Administrador: [
+    '/dashboard',
+    '/categorias',
+    '/productos',
+    '/almacenes',
+    '/ubicaciones',
+    '/stock',
+    '/kardex',
+    '/movimientos',
+    '/proveedores',
+    '/ordenes-compra',
+    '/usuarios',
+    '/reportes',
+    '/auditoria'
+  ],
+  Supervisor: [
+    '/dashboard',
+    '/categorias',
+    '/productos',
+    '/almacenes',
+    '/ubicaciones',
+    '/stock',
+    '/kardex',
+    '/movimientos',
+    '/proveedores',
+    '/ordenes-compra',
+    '/reportes'
+  ],
+  Operador: [
+    '/dashboard',
+    '/stock',
+    '/kardex',
+    '/movimientos'
+  ]
+}
+
+export function normalizeRole(role = '') {
+  const normalized = String(role).trim().toLowerCase()
+
+  if (normalized === 'admin' || normalized === 'administrador') {
+    return 'Administrador'
+  }
+
+  if (normalized === 'supervisor') {
+    return 'Supervisor'
+  }
+
+  if (normalized === 'operador') {
+    return 'Operador'
+  }
+
+  return role
+}
+
+export function canAccessPath(usuario, path) {
+  const role = normalizeRole(usuario?.rol)
+  const allowedPaths = ROLE_PERMISSIONS[role] || []
+
+  return allowedPaths.includes(path)
+}
 
 export function getUsuario() {
   const rawUsuario = localStorage.getItem(USER_STORAGE_KEY)
@@ -30,7 +91,7 @@ export function saveUsuario(usuario, token = null) {
       id: usuario.id,
       nombre: usuario.nombre,
       correo: usuario.correo,
-      rol: usuario.rol
+      rol: normalizeRole(usuario.rol)
     })
   )
 

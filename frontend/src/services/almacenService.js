@@ -14,7 +14,7 @@ async function request(url, options = {}) {
     })
   } catch (_error) {
     throw new Error(
-      'No se pudo conectar con la API de almacenes. Verifica que el backend este activo en http://localhost:3000 y que Vite use el proxy /api.'
+      'No se pudo conectar con la API de almacenes. Verifica que el backend este activo y que la URL de API este configurada.'
     )
   }
 
@@ -45,8 +45,8 @@ function normalizeListResponse(response) {
   throw new Error('La respuesta de almacenes no contiene una lista valida.')
 }
 
-export async function getAlmacenes() {
-  const response = await request(API_URL)
+export async function getAlmacenes(estado = 'activo') {
+  const response = await request(`${API_URL}?estado=${encodeURIComponent(estado)}`)
   return normalizeListResponse(response)
 }
 
@@ -72,4 +72,12 @@ export async function deleteAlmacen(idAlmacen) {
   return request(`${API_URL}/${idAlmacen}`, {
     method: 'DELETE'
   })
+}
+
+export async function reactivateAlmacen(idAlmacen) {
+  const response = await request(`${API_URL}/${idAlmacen}/reactivar`, {
+    method: 'PATCH'
+  })
+
+  return response.data
 }

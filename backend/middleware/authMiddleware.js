@@ -53,7 +53,7 @@ function authenticateToken(req, res, next) {
   }
 }
 
-function requireRoles(...roles) {
+function authorizeRoles(...roles) {
   const allowedRoles = roles.map(normalizeRole);
 
   return (req, res, next) => {
@@ -70,8 +70,11 @@ function requireRoles(...roles) {
   };
 }
 
+const requireRoles = authorizeRoles;
+
 module.exports = {
   authenticateToken,
+  authorizeRoles,
   requireRoles,
   normalizeRole
 };

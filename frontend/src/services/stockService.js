@@ -8,7 +8,7 @@ async function request(url) {
     response = await apiFetch(url)
   } catch (_error) {
     throw new Error(
-      'No se pudo conectar con la API de stock. Verifica que el backend este activo en http://localhost:3000 y que Vite use el proxy /api.'
+      'No se pudo conectar con la API de stock. Verifica que el backend este activo y que la URL de API este configurada.'
     )
   }
 

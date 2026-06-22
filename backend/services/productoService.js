@@ -19,11 +19,22 @@ const baseSelect = `
   INNER JOIN categoria c ON c.id_categoria = p.id_categoria
 `;
 
-async function findAll() {
+function buildEstadoFilter(estado, prefix = 'WHERE', paramIndex = 1) {
+  if (estado === 'todos') {
+    return { clause: '', params: [] };
+  }
+
+  const normalized = estado === 'inactivo' ? 'inactivo' : 'activo';
+  return { clause: `${prefix} LOWER(p.estado) = $${paramIndex}`, params: [normalized] };
+}
+
+async function findAll(estado = 'activo') {
+  const filter = buildEstadoFilter(estado);
   const { rows } = await pool.query(`
     ${baseSelect}
+    ${filter.clause}
     ORDER BY p.id_producto ASC
-  `);
+  `, filter.params);
 
   return rows;
 }
@@ -37,14 +48,16 @@ async function findById(idProducto) {
   return rows[0] || null;
 }
 
-async function findByCategoria(idCategoria) {
+async function findByCategoria(idCategoria, estado = 'activo') {
+  const filter = buildEstadoFilter(estado, 'AND', 2);
   const { rows } = await pool.query(
     `
       ${baseSelect}
       WHERE p.id_categoria = $1
+      ${filter.clause}
       ORDER BY p.id_producto ASC
     `,
-    [idCategoria]
+    [idCategoria, ...filter.params]
   );
 
   return rows;
@@ -104,7 +117,7 @@ async function update(idProducto, producto) {
         unidad_medida = $5,
         stock_minimo = $6,
         stock_maximo = $7,
-        estado = $8,
+        estado = LOWER($8),
         id_categoria = $9,
         updated_at = NOW()
       WHERE id_producto = $10
@@ -131,13 +144,39 @@ async function update(idProducto, producto) {
   return findById(rows[0].id_producto);
 }
 
+async function updateEstado(idProducto, estado) {
+  const { rows } = await pool.query(
+    `
+      UPDATE producto
+      SET estado = $1, updated_at = NOW()
+      WHERE id_producto = $2
+      RETURNING id_producto
+    `,
+    [estado, idProducto]
+  );
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return findById(rows[0].id_producto);
+}
+
 async function remove(idProducto) {
-  const { rowCount } = await pool.query(
-    'DELETE FROM producto WHERE id_producto = $1',
+  return updateEstado(idProducto, 'inactivo');
+}
+
+async function reactivate(idProducto) {
+  return updateEstado(idProducto, 'activo');
+}
+
+async function hasStock(idProducto) {
+  const { rows } = await pool.query(
+    'SELECT 1 FROM stock WHERE id_producto = $1 LIMIT 1',
     [idProducto]
   );
 
-  return rowCount > 0;
+  return rows.length > 0;
 }
 
 module.exports = {
@@ -147,5 +186,8 @@ module.exports = {
   findByCodigo,
   create,
   update,
-  remove
+  updateEstado,
+  remove,
+  reactivate,
+  hasStock
 };

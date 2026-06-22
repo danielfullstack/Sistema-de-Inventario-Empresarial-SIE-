@@ -14,7 +14,7 @@ async function request(url, options = {}) {
     })
   } catch (_error) {
     throw new Error(
-      'No se pudo conectar con la API de ubicaciones. Verifica que el backend este activo en http://localhost:3000 y que Vite use el proxy /api.'
+      'No se pudo conectar con la API de ubicaciones. Verifica que el backend este activo y que la URL de API este configurada.'
     )
   }
 
@@ -45,13 +45,13 @@ function normalizeListResponse(response) {
   throw new Error('La respuesta de ubicaciones no contiene una lista valida.')
 }
 
-export async function getUbicaciones() {
-  const response = await request(API_URL)
+export async function getUbicaciones(estado = 'activo') {
+  const response = await request(`${API_URL}?estado=${encodeURIComponent(estado)}`)
   return normalizeListResponse(response)
 }
 
-export async function getUbicacionesByAlmacen(idAlmacen) {
-  const response = await request(`${API_URL}/almacen/${idAlmacen}`)
+export async function getUbicacionesByAlmacen(idAlmacen, estado = 'activo') {
+  const response = await request(`${API_URL}/almacen/${idAlmacen}?estado=${encodeURIComponent(estado)}`)
   return normalizeListResponse(response)
 }
 
@@ -77,4 +77,12 @@ export async function deleteUbicacion(idUbicacion) {
   return request(`${API_URL}/${idUbicacion}`, {
     method: 'DELETE'
   })
+}
+
+export async function reactivateUbicacion(idUbicacion) {
+  const response = await request(`${API_URL}/${idUbicacion}/reactivar`, {
+    method: 'PATCH'
+  })
+
+  return response.data
 }

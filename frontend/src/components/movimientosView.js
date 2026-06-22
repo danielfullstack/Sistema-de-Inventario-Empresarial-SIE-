@@ -46,6 +46,10 @@ export function renderMovimientos(usuario) {
               <button class="primary-button module-primary-button" type="button" data-open-movement-modal>
                 Nuevo Movimiento
               </button>
+              <div class="row-actions">
+                <button class="secondary-button" type="button" data-export-movements-pdf>Exportar PDF</button>
+                <button class="secondary-button" type="button" data-export-movements-excel>Exportar Excel</button>
+              </div>
             </div>
 
             <section class="stock-summary-grid" data-movement-summary>

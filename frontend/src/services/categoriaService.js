@@ -18,8 +18,8 @@ async function request(url, options = {}) {
   return data
 }
 
-export async function getCategorias() {
-  const response = await request(API_URL)
+export async function getCategorias(estado = 'activo') {
+  const response = await request(`${API_URL}?estado=${encodeURIComponent(estado)}`)
   return response.data
 }
 
@@ -45,4 +45,12 @@ export async function deleteCategoria(idCategoria) {
   return request(`${API_URL}/${idCategoria}`, {
     method: 'DELETE'
   })
+}
+
+export async function reactivateCategoria(idCategoria) {
+  const response = await request(`${API_URL}/${idCategoria}/reactivar`, {
+    method: 'PATCH'
+  })
+
+  return response.data
 }

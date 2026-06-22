@@ -8,6 +8,7 @@ router.get('/almacen/:id', ubicacionController.getUbicacionesByAlmacen);
 router.get('/:id', ubicacionController.getUbicacionById);
 router.post('/', ubicacionController.createUbicacion);
 router.put('/:id', ubicacionController.updateUbicacion);
+router.patch('/:id/reactivar', ubicacionController.reactivateUbicacion);
 router.delete('/:id', ubicacionController.deleteUbicacion);
 
 module.exports = router;

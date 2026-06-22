@@ -25,7 +25,7 @@ function parseInteger(value) {
 }
 
 function parsePayload(body) {
-  const estado = String(body.estado || 'Activo').trim();
+  const estado = String(body.estado || 'activo').trim().toLowerCase();
 
   return {
     codigoProducto: String(body.codigo_producto || '').trim(),
@@ -35,7 +35,7 @@ function parsePayload(body) {
     unidadMedida: String(body.unidad_medida || '').trim() || null,
     stockMinimo: parseInteger(body.stock_minimo),
     stockMaximo: parseInteger(body.stock_maximo),
-    estado: estado || 'Activo',
+    estado: estado || 'activo',
     idCategoria: parseId(body.id_categoria)
   };
 }
@@ -65,7 +65,7 @@ function validatePayload(payload) {
     return 'El stock maximo debe ser mayor o igual al stock minimo.';
   }
 
-  if (!['Activo', 'Inactivo'].includes(payload.estado)) {
+  if (!['activo', 'inactivo'].includes(payload.estado)) {
     return 'El estado seleccionado no es valido.';
   }
 
@@ -87,9 +87,14 @@ async function validateCodigoUnique(codigoProducto, idProductoActual = null) {
   return producto.id_producto === idProductoActual;
 }
 
-async function getProductos(_req, res) {
+function parseEstadoQuery(value) {
+  const estado = String(value || 'activo').trim().toLowerCase();
+  return ['activo', 'inactivo', 'todos'].includes(estado) ? estado : 'activo';
+}
+
+async function getProductos(req, res) {
   try {
-    const productos = await productoService.findAll();
+    const productos = await productoService.findAll(parseEstadoQuery(req.query.estado));
 
     return res.json({
       success: true,
@@ -150,7 +155,7 @@ async function getProductosByCategoria(req, res) {
   }
 
   try {
-    const productos = await productoService.findByCategoria(idCategoria);
+    const productos = await productoService.findByCategoria(idCategoria, parseEstadoQuery(req.query.estado));
 
     return res.json({
       success: true,
@@ -288,11 +293,12 @@ async function deleteProducto(req, res) {
       });
     }
 
-    await productoService.remove(idProducto);
+    const productoDesactivado = await productoService.remove(idProducto);
 
     return res.json({
       success: true,
-      message: 'Producto eliminado correctamente.'
+      message: 'Producto desactivado correctamente.',
+      data: productoDesactivado
     });
   } catch (error) {
     console.error('Error al eliminar producto:', error);
@@ -311,11 +317,47 @@ async function deleteProducto(req, res) {
   }
 }
 
+async function reactivateProducto(req, res) {
+  const idProducto = parseId(req.params.id);
+
+  if (!idProducto) {
+    return res.status(400).json({
+      success: false,
+      message: 'ID de producto invalido.'
+    });
+  }
+
+  try {
+    const producto = await productoService.reactivate(idProducto);
+
+    if (!producto) {
+      return res.status(404).json({
+        success: false,
+        message: 'Producto no encontrado.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Producto reactivado correctamente.',
+      data: producto
+    });
+  } catch (error) {
+    console.error('Error al reactivar producto:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Error al reactivar producto.'
+    });
+  }
+}
+
 module.exports = {
   getProductos,
   getProductoById,
   getProductosByCategoria,
   createProducto,
   updateProducto,
-  deleteProducto
+  deleteProducto,
+  reactivateProducto
 };

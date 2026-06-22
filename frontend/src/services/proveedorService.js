@@ -14,7 +14,7 @@ async function request(url, options = {}) {
     })
   } catch (_error) {
     throw new Error(
-      'No se pudo conectar con la API de proveedores. Verifica que el backend este activo en http://localhost:3000 y que Vite use el proxy /api.'
+      'No se pudo conectar con la API de proveedores. Verifica que el backend este activo y que la URL de API este configurada.'
     )
   }
 
@@ -45,8 +45,8 @@ function normalizeListResponse(response) {
   throw new Error('La respuesta de proveedores no contiene una lista valida.')
 }
 
-export async function getProveedores() {
-  const response = await request(API_URL)
+export async function getProveedores(estado = 'activo') {
+  const response = await request(`${API_URL}?estado=${encodeURIComponent(estado)}`)
   return normalizeListResponse(response)
 }
 
@@ -72,4 +72,12 @@ export async function deleteProveedor(idProveedor) {
   return request(`${API_URL}/${idProveedor}`, {
     method: 'DELETE'
   })
+}
+
+export async function reactivateProveedor(idProveedor) {
+  const response = await request(`${API_URL}/${idProveedor}/reactivar`, {
+    method: 'PATCH'
+  })
+
+  return response.data
 }

@@ -1,5 +1,9 @@
 import { escapeHtml, renderHeader, renderSidebar } from './erpLayout.js'
 
+function normalizeEstado(estado = '') {
+  return String(estado).toLowerCase() === 'inactivo' ? 'Inactivo' : 'Activo'
+}
+
 export function renderUbicaciones(usuario) {
   return `
     <main class="erp-shell">
@@ -31,6 +35,14 @@ export function renderUbicaciones(usuario) {
                 <span>Almacen</span>
                 <select id="location-warehouse-filter" data-location-warehouse-filter></select>
               </label>
+              <label class="module-search" for="location-status-filter">
+                <span>Estado</span>
+                <select id="location-status-filter" data-location-status-filter>
+                  <option value="activo">Activas</option>
+                  <option value="inactivo">Inactivas</option>
+                  <option value="todos">Todas</option>
+                </select>
+              </label>
 
               <p class="module-status" data-location-status>Cargando ubicaciones...</p>
             </div>
@@ -45,12 +57,13 @@ export function renderUbicaciones(usuario) {
                     <th>Estante</th>
                     <th>Nivel</th>
                     <th>Capacidad</th>
+                    <th>Estado</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody data-location-table-body>
                   <tr>
-                    <td colspan="7">Cargando ubicaciones...</td>
+                    <td colspan="8">Cargando ubicaciones...</td>
                   </tr>
                 </tbody>
               </table>
@@ -126,7 +139,7 @@ export function renderUbicacionRows(ubicaciones) {
   if (!Array.isArray(ubicaciones)) {
     return `
       <tr>
-        <td colspan="7">No se pudo interpretar la lista de ubicaciones.</td>
+        <td colspan="8">No se pudo interpretar la lista de ubicaciones.</td>
       </tr>
     `
   }
@@ -134,27 +147,34 @@ export function renderUbicacionRows(ubicaciones) {
   if (ubicaciones.length === 0) {
     return `
       <tr>
-        <td colspan="7">No se encontraron ubicaciones.</td>
+        <td colspan="8">No se encontraron ubicaciones.</td>
       </tr>
     `
   }
 
-  return ubicaciones.map((ubicacion) => `
-    <tr>
-      <td><strong>${escapeHtml(ubicacion.codigo)}</strong></td>
-      <td>${escapeHtml(ubicacion.almacen_nombre || '-')}</td>
-      <td>${escapeHtml(ubicacion.pasillo || '-')}</td>
-      <td>${escapeHtml(ubicacion.estante || '-')}</td>
-      <td>${escapeHtml(ubicacion.nivel || '-')}</td>
-      <td>${ubicacion.capacidad ?? 0}</td>
-      <td>
-        <div class="row-actions">
-          <button class="table-action edit" type="button" data-edit-location="${ubicacion.id_ubicacion}">Editar</button>
-          <button class="table-action delete" type="button" data-delete-location="${ubicacion.id_ubicacion}">Eliminar</button>
-        </div>
-      </td>
-    </tr>
-  `).join('')
+  return ubicaciones.map((ubicacion) => {
+    const estado = normalizeEstado(ubicacion.estado)
+
+    return `
+      <tr>
+        <td><strong>${escapeHtml(ubicacion.codigo)}</strong></td>
+        <td>${escapeHtml(ubicacion.almacen_nombre || '-')}</td>
+        <td>${escapeHtml(ubicacion.pasillo || '-')}</td>
+        <td>${escapeHtml(ubicacion.estante || '-')}</td>
+        <td>${escapeHtml(ubicacion.nivel || '-')}</td>
+        <td>${ubicacion.capacidad ?? 0}</td>
+        <td><span class="status-badge ${estado === 'Activo' ? 'active' : 'inactive'}">${estado}</span></td>
+        <td>
+          <div class="row-actions">
+            <button class="table-action edit" type="button" data-edit-location="${ubicacion.id_ubicacion}">Editar</button>
+            ${estado === 'Activo'
+              ? `<button class="table-action delete" type="button" data-delete-location="${ubicacion.id_ubicacion}">Desactivar</button>`
+              : `<button class="table-action edit" type="button" data-reactivate-location="${ubicacion.id_ubicacion}">Reactivar</button>`}
+          </div>
+        </td>
+      </tr>
+    `
+  }).join('')
 }
 
 export function renderAlmacenOptions(almacenes, selectedId = null, includeAll = false) {

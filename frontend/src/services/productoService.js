@@ -18,13 +18,13 @@ async function request(url, options = {}) {
   return data
 }
 
-export async function getProductos() {
-  const response = await request(API_URL)
+export async function getProductos(estado = 'activo') {
+  const response = await request(`${API_URL}?estado=${encodeURIComponent(estado)}`)
   return response.data
 }
 
-export async function getProductosByCategoria(idCategoria) {
-  const response = await request(`${API_URL}/categoria/${idCategoria}`)
+export async function getProductosByCategoria(idCategoria, estado = 'activo') {
+  const response = await request(`${API_URL}/categoria/${idCategoria}?estado=${encodeURIComponent(estado)}`)
   return response.data
 }
 
@@ -50,4 +50,12 @@ export async function deleteProducto(idProducto) {
   return request(`${API_URL}/${idProducto}`, {
     method: 'DELETE'
   })
+}
+
+export async function reactivateProducto(idProducto) {
+  const response = await request(`${API_URL}/${idProducto}/reactivar`, {
+    method: 'PATCH'
+  })
+
+  return response.data
 }

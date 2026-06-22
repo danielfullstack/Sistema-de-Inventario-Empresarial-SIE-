@@ -14,11 +14,22 @@ const baseSelect = `
   FROM proveedor
 `;
 
-async function findAll() {
+function buildEstadoFilter(estado) {
+  if (estado === 'todos') {
+    return { clause: '', params: [] };
+  }
+
+  const normalized = estado === 'inactivo' ? 'inactivo' : 'activo';
+  return { clause: 'WHERE LOWER(estado) = $1', params: [normalized] };
+}
+
+async function findAll(estado = 'activo') {
+  const filter = buildEstadoFilter(estado);
   const { rows } = await pool.query(`
     ${baseSelect}
+    ${filter.clause}
     ORDER BY id_proveedor ASC
-  `);
+  `, filter.params);
 
   return rows;
 }
@@ -71,7 +82,7 @@ async function update(idProveedor, proveedor) {
         telefono = $3,
         email = $4,
         direccion = $5,
-        estado = $6,
+        estado = LOWER($6),
         updated_at = NOW()
       WHERE id_proveedor = $7
       RETURNING id_proveedor
@@ -94,13 +105,39 @@ async function update(idProveedor, proveedor) {
   return findById(rows[0].id_proveedor);
 }
 
+async function updateEstado(idProveedor, estado) {
+  const { rows } = await pool.query(
+    `
+      UPDATE proveedor
+      SET estado = $1, updated_at = NOW()
+      WHERE id_proveedor = $2
+      RETURNING id_proveedor
+    `,
+    [estado, idProveedor]
+  );
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return findById(rows[0].id_proveedor);
+}
+
 async function remove(idProveedor) {
-  const { rowCount } = await pool.query(
-    'DELETE FROM proveedor WHERE id_proveedor = $1',
+  return updateEstado(idProveedor, 'inactivo');
+}
+
+async function reactivate(idProveedor) {
+  return updateEstado(idProveedor, 'activo');
+}
+
+async function hasOrdenes(idProveedor) {
+  const { rows } = await pool.query(
+    'SELECT 1 FROM orden_compra WHERE id_proveedor = $1 LIMIT 1',
     [idProveedor]
   );
 
-  return rowCount > 0;
+  return rows.length > 0;
 }
 
 module.exports = {
@@ -109,5 +146,8 @@ module.exports = {
   findByRuc,
   create,
   update,
-  remove
+  updateEstado,
+  remove,
+  reactivate,
+  hasOrdenes
 };
